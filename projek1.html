@@ -3,27 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Hand Tracking - I Love You with Heart Particles</title>
+    <title>I LOVE YOU - AI Hand Tracking</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; }
         canvas { display: block; position: absolute; top: 0; left: 0; z-index: 2; }
         #video {
             position: absolute; bottom: 20px; right: 20px;
-            width: 180px; height: 135px;
+            width: 160px; height: 120px;
             border: 2px solid #ee5282; border-radius: 10px;
-            z-index: 1; transform: scaleX(-1); opacity: 0.3;
+            z-index: 1; transform: scaleX(-1); opacity: 0.5;
         }
-        .status {
+        .instructions {
             position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-            color: #ee5282; font-family: 'Courier New', Courier, monospace;
-            z-index: 10; font-size: 18px; font-weight: bold; text-shadow: 0 0 10px #ee5282;
-            text-align: center;
+            color: #ee5282; font-family: Arial; z-index: 10;
+            text-align: center; font-weight: bold; text-transform: uppercase;
         }
     </style>
 </head>
 <body>
 
-    <div class="status" id="status">WAITING FOR CAMERA...</div>
+    <div class="instructions" id="status">Menginisialisasi Kamera AI...</div>
     <video id="video" autoplay playsinline></video>
     <canvas id="canvas"></canvas>
 
@@ -43,65 +42,59 @@
         let handX = null;
         let handY = null;
 
-        // --- 1. FUNGSI UNTUK MENGGAMBAR BENTUK HATI (LOVE) ---
+        // --- FUNGSI GAMBAR HATI ---
         function drawHeart(x, y, size, color) {
             ctx.fillStyle = color;
             ctx.beginPath();
-            // Algoritma kurva Bezier untuk membentuk hati
-            ctx.moveTo(x, y + size / 4);
-            ctx.bezierCurveTo(x, y, x - size / 2, y, x - size / 2, y + size / 4);
-            ctx.bezierCurveTo(x - size / 2, y + size / 2, x, y + size * 0.75, x, y + size);
-            ctx.bezierCurveTo(x, y + size * 0.75, x + size / 2, y + size / 2, x + size / 2, y + size / 4);
-            ctx.bezierCurveTo(x + size / 2, y, x, y, x, y + size / 4);
-            ctx.closePath();
+            ctx.moveTo(x, y);
+            ctx.bezierCurveTo(x, y - size / 2, x - size, y - size / 2, x - size, y);
+            ctx.bezierCurveTo(x - size, y + size / 2, x, y + size, x, y + size);
+            ctx.bezierCurveTo(x, y + size, x + size, y + size / 2, x + size, y);
+            ctx.bezierCurveTo(x + size, y - size / 2, x, y - size / 2, x, y);
             ctx.fill();
         }
 
-        // --- 2. LOGIKA PEMBENTUKAN TULISAN ---
-        function createTextPixels() {
-            ctx.fillStyle = "white";
-            // Sesuaikan ukuran font berdasarkan lebar layar agar responsif
-            const fontSize = Math.min(window.innerWidth * 0.15, 150);
-            ctx.font = `bold ${fontSize}px Arial`;
-            ctx.textAlign = "center";
-            ctx.fillText("I LOVE YOU", canvas.width / 2, canvas.height / 2);
-            
-            // Ambil data pixel dari canvas
-            const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        // --- LOGIKA SCAN TEKS ---
+        function getTextCoordinates() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            return data;
+            ctx.fillStyle = "white";
+            const fontSize = Math.min(canvas.width * 0.12, 140);
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("I LOVE YOU", canvas.width / 2, canvas.height / 2);
+
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const coords = [];
+            // Scan pixel tiap 10px agar performa enteng
+            for (let y = 0; y < canvas.height; y += 10) {
+                for (let x = 0; x < canvas.width; x += 10) {
+                    if (imageData.data[(y * 4 * canvas.width) + (x * 4) + 3] > 128) {
+                        coords.push({ x, y });
+                    }
+                }
+            }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            return coords;
         }
 
-        // --- 3. CLASS PARTIKEL (DENGAN LOGIKA BENTUK HATI) ---
         class Particle {
-            constructor(x, y) {
-                // Posisi awal acak
+            constructor(targetX, targetY) {
                 this.x = Math.random() * canvas.width;
                 this.y = Math.random() * canvas.height;
-                
-                // Posisi tujuan (koordinat huruf)
-                this.destX = x;
-                this.destY = y;
-                
-                // Ukuran dan Fisika
-                this.size = Math.random() * 5 + 3; // Ukuran bervariasi
+                this.targetX = targetX;
+                this.targetY = targetY;
+                this.size = Math.random() * 4 + 2;
                 this.vx = 0;
                 this.vy = 0;
-                this.friction = 0.92; // Sedikit lebih lambat agar halus
-                this.springFactor = 0.12;
-                this.color = '#ee5282'; // Warna pink khas
-                
-                // Tentukan acak apakah partikel ini berbentuk hati atau titik
-                this.isHeart = Math.random() > 0.6; // 40% kemungkinan berbentuk hati
+                this.isHeart = Math.random() > 0.7; // 30% jadi bentuk hati
             }
 
             draw() {
                 if (this.isHeart) {
-                    // Gambar hati menggunakan fungsi khusus
-                    drawHeart(this.x, this.y, this.size * 2, this.color);
+                    drawHeart(this.x, this.y, this.size * 2, "#ee5282");
                 } else {
-                    // Gambar titik biasa
-                    ctx.fillStyle = this.color;
+                    ctx.fillStyle = "#ff74a4";
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
                     ctx.fill();
@@ -109,71 +102,82 @@
             }
 
             update() {
-                // Gaya Pegas (Kembali ke bentuk tulisan)
-                let dx = this.destX - this.x;
-                let dy = this.destY - this.y;
-                this.vx += dx * this.springFactor;
-                this.vy += dy * this.springFactor;
-                this.vx *= this.friction;
-                this.vy *= this.friction;
+                // Balik ke posisi tulisan (Spring effect)
+                let dx = this.targetX - this.x;
+                let dy = this.targetY - this.y;
+                this.vx += dx * 0.05;
+                this.vy += dy * 0.05;
+                this.vx *= 0.85;
+                this.vy *= 0.85;
                 this.x += this.vx;
                 this.y += this.vy;
 
-                // Interaksi Tangan (Efek Mengacak-acak)
-                if (handX != null && handY != null) {
-                    let hx = handX - this.x;
-                    let hy = handY - this.y;
-                    let dist = Math.sqrt(hx * hx + hy * hy);
-                    // Jarak interaksi jari (120px)
-                    if (dist < 120) {
-                        let angle = Math.atan2(hy, hx);
-                        // Kekuatan lemparan (pentalan)
-                        let force = 20; 
-                        this.vx -= Math.cos(angle) * force;
-                        this.vy -= Math.sin(angle) * force;
+                // Interaksi Jari
+                if (handX && handY) {
+                    let hdx = this.x - handX;
+                    let hdy = this.y - handY;
+                    let dist = Math.sqrt(hdx*hdx + hdy*hdy);
+                    if (dist < 100) {
+                        this.vx += hdx * 0.5;
+                        this.vy += hdy * 0.5;
                     }
                 }
             }
         }
 
         function init() {
-            particlesArray = [];
-            const pixelData = createTextPixels();
-            
-            // Tentukan kerapatan pixel berdasarkan performa layar
-            const density = Math.min(window.innerWidth, window.innerHeight) > 1000 ? 10 : 8;
-
-            // Scan pixel canvas, jika ada warna (text), buat partikel di sana
-            for (let y = 0; y < pixelData.height; y += density) {
-                for (let x = 0; x < pixelData.width; x += density) {
-                    // Indeks pixel dalam array data (RGBA)
-                    const index = (y * 4 * pixelData.width) + (x * 4) + 3;
-                    // Jika pixel tidak transparan (bagian dari huruf), buat partikel
-                    if (pixelData.data[index] > 128) {
-                        particlesArray.push(new Particle(x, y));
-                    }
-                }
-            }
+            const points = getTextCoordinates();
+            particlesArray = points.map(p => new Particle(p.x, p.y));
         }
 
         function animate() {
-            // Hapus canvas setiap frame
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "rgba(0, 0, 0, 0.2)"; // Trail effect
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Tambahkan efek Additive Blending agar partikel bersinar saat bertumpuk
-            ctx.globalCompositeOperation = 'lighter';
-            
-            for (let i = 0; i < particlesArray.length; i++) {
-                particlesArray[i].update();
-                particlesArray[i].draw();
-            }
-            
-            // Kembalikan blending mode ke normal
-            ctx.globalCompositeOperation = 'source-over';
-            
+            particlesArray.forEach(p => {
+                p.update();
+                p.draw();
+            });
             requestAnimationFrame(animate);
         }
 
-        // --- 4. SETUP AI HAND TRACKING ---
+        // --- TRACKING TANGAN ---
         const hands = new Hands({
-            locateFile: (file) => `
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        hands.onResults(results => {
+            statusText.innerText = "SISTEM AKTIF - GERAKKAN JARIMU DI ATAS TULISAN";
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmark = results.multiHandLandmarks[0][8]; // Ujung jari telunjuk
+                handX = (1 - landmark.x) * canvas.width;
+                handY = landmark.y * canvas.height;
+            } else {
+                handX = null; handY = null;
+            }
+        });
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => { await hands.send({image: videoElement}); },
+            width: 640, height: 480
+        });
+        camera.start();
+
+        init();
+        animate();
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            init();
+        });
+    </script>
+</body>
+</html>
