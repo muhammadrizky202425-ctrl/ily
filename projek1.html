@@ -3,35 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Hand Magnet Particles</title>
+    <title>AI Hand Tracking - I Love You with Heart Particles</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; }
         canvas { display: block; position: absolute; top: 0; left: 0; z-index: 2; }
         #video {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            width: 200px;
-            height: 150px;
-            border: 2px solid #ee5282;
-            border-radius: 10px;
-            z-index: 1;
-            transform: scaleX(-1);
-            opacity: 0.5; /* Transparan agar tidak mengganggu */
+            position: absolute; bottom: 20px; right: 20px;
+            width: 180px; height: 135px;
+            border: 2px solid #ee5282; border-radius: 10px;
+            z-index: 1; transform: scaleX(-1); opacity: 0.3;
         }
         .status {
-            position: fixed;
-            top: 20px; left: 20px;
-            color: #ee5282;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            z-index: 10;
-            letter-spacing: 2px;
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            color: #ee5282; font-family: 'Courier New', Courier, monospace;
+            z-index: 10; font-size: 18px; font-weight: bold; text-shadow: 0 0 10px #ee5282;
+            text-align: center;
         }
     </style>
 </head>
 <body>
 
-    <div class="status" id="status">MENGINISIALISASI KAMERA AI...</div>
+    <div class="status" id="status">WAITING FOR CAMERA...</div>
     <video id="video" autoplay playsinline></video>
     <canvas id="canvas"></canvas>
 
@@ -51,49 +43,94 @@
         let handX = null;
         let handY = null;
 
+        // --- 1. FUNGSI UNTUK MENGGAMBAR BENTUK HATI (LOVE) ---
+        function drawHeart(x, y, size, color) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            // Algoritma kurva Bezier untuk membentuk hati
+            ctx.moveTo(x, y + size / 4);
+            ctx.bezierCurveTo(x, y, x - size / 2, y, x - size / 2, y + size / 4);
+            ctx.bezierCurveTo(x - size / 2, y + size / 2, x, y + size * 0.75, x, y + size);
+            ctx.bezierCurveTo(x, y + size * 0.75, x + size / 2, y + size / 2, x + size / 2, y + size / 4);
+            ctx.bezierCurveTo(x + size / 2, y, x, y, x, y + size / 4);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // --- 2. LOGIKA PEMBENTUKAN TULISAN ---
+        function createTextPixels() {
+            ctx.fillStyle = "white";
+            // Sesuaikan ukuran font berdasarkan lebar layar agar responsif
+            const fontSize = Math.min(window.innerWidth * 0.15, 150);
+            ctx.font = `bold ${fontSize}px Arial`;
+            ctx.textAlign = "center";
+            ctx.fillText("I LOVE YOU", canvas.width / 2, canvas.height / 2);
+            
+            // Ambil data pixel dari canvas
+            const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            return data;
+        }
+
+        // --- 3. CLASS PARTIKEL (DENGAN LOGIKA BENTUK HATI) ---
         class Particle {
-            constructor() {
+            constructor(x, y) {
+                // Posisi awal acak
                 this.x = Math.random() * canvas.width;
                 this.y = Math.random() * canvas.height;
-                this.size = Math.random() * 2 + 1;
-                this.baseX = this.x;
-                this.baseY = this.y;
-                this.density = (Math.random() * 30) + 1;
-                this.velocity = { x: (Math.random() - 0.5) * 2, y: (Math.random() - 0.5) * 2 };
+                
+                // Posisi tujuan (koordinat huruf)
+                this.destX = x;
+                this.destY = y;
+                
+                // Ukuran dan Fisika
+                this.size = Math.random() * 5 + 3; // Ukuran bervariasi
+                this.vx = 0;
+                this.vy = 0;
+                this.friction = 0.92; // Sedikit lebih lambat agar halus
+                this.springFactor = 0.12;
+                this.color = '#ee5282'; // Warna pink khas
+                
+                // Tentukan acak apakah partikel ini berbentuk hati atau titik
+                this.isHeart = Math.random() > 0.6; // 40% kemungkinan berbentuk hati
             }
 
             draw() {
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fillStyle = '#ee5282';
-                ctx.fill();
+                if (this.isHeart) {
+                    // Gambar hati menggunakan fungsi khusus
+                    drawHeart(this.x, this.y, this.size * 2, this.color);
+                } else {
+                    // Gambar titik biasa
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
 
             update() {
-                // Gerakan Alami
-                this.x += this.velocity.x;
-                this.y += this.velocity.y;
+                // Gaya Pegas (Kembali ke bentuk tulisan)
+                let dx = this.destX - this.x;
+                let dy = this.destY - this.y;
+                this.vx += dx * this.springFactor;
+                this.vy += dy * this.springFactor;
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+                this.x += this.vx;
+                this.y += this.vy;
 
-                // Pantulan Dinding
-                if (this.x < 0 || this.x > canvas.width) this.velocity.x *= -1;
-                if (this.y < 0 || this.y > canvas.height) this.velocity.y *= -1;
-
-                // LOGIKA MAGNET TANGAN (Sama seperti Video)
+                // Interaksi Tangan (Efek Mengacak-acak)
                 if (handX != null && handY != null) {
-                    let dx = handX - this.x;
-                    let dy = handY - this.y;
-                    let distance = Math.sqrt(dx * dx + dy * dy);
-                    let forceDirectionX = dx / distance;
-                    let forceDirectionY = dy / distance;
-                    
-                    // Jarak pengaruh magnet (300px)
-                    let maxDistance = 300;
-                    let force = (maxDistance - distance) / maxDistance;
-
-                    if (distance < maxDistance) {
-                        // Partikel tertarik ke arah tangan
-                        this.x += forceDirectionX * force * 8;
-                        this.y += forceDirectionY * force * 8;
+                    let hx = handX - this.x;
+                    let hy = handY - this.y;
+                    let dist = Math.sqrt(hx * hx + hy * hy);
+                    // Jarak interaksi jari (120px)
+                    if (dist < 120) {
+                        let angle = Math.atan2(hy, hx);
+                        // Kekuatan lemparan (pentalan)
+                        let force = 20; 
+                        this.vx -= Math.cos(angle) * force;
+                        this.vy -= Math.sin(angle) * force;
                     }
                 }
             }
@@ -101,85 +138,42 @@
 
         function init() {
             particlesArray = [];
-            let quantity = (canvas.width * canvas.height) / 6000;
-            for (let i = 0; i < quantity; i++) {
-                particlesArray.push(new Particle());
-            }
-        }
+            const pixelData = createTextPixels();
+            
+            // Tentukan kerapatan pixel berdasarkan performa layar
+            const density = Math.min(window.innerWidth, window.innerHeight) > 1000 ? 10 : 8;
 
-        function connect() {
-            for (let a = 0; a < particlesArray.length; a++) {
-                for (let b = a; b < particlesArray.length; b++) {
-                    let dx = particlesArray[a].x - particlesArray[b].x;
-                    let dy = particlesArray[a].y - particlesArray[b].y;
-                    let distance = Math.sqrt(dx * dx + dy * dy);
-
-                    if (distance < 150) {
-                        let opacity = 1 - (distance / 150);
-                        ctx.strokeStyle = `rgba(238, 82, 130, ${opacity})`;
-                        ctx.lineWidth = 0.5;
-                        ctx.beginPath();
-                        ctx.moveTo(particlesArray[a].x, particlesArray[a].y);
-                        ctx.lineTo(particlesArray[b].x, particlesArray[b].y);
-                        ctx.stroke();
+            // Scan pixel canvas, jika ada warna (text), buat partikel di sana
+            for (let y = 0; y < pixelData.height; y += density) {
+                for (let x = 0; x < pixelData.width; x += density) {
+                    // Indeks pixel dalam array data (RGBA)
+                    const index = (y * 4 * pixelData.width) + (x * 4) + 3;
+                    // Jika pixel tidak transparan (bagian dari huruf), buat partikel
+                    if (pixelData.data[index] > 128) {
+                        particlesArray.push(new Particle(x, y));
                     }
                 }
             }
         }
 
         function animate() {
+            // Hapus canvas setiap frame
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Tambahkan efek Additive Blending agar partikel bersinar saat bertumpuk
+            ctx.globalCompositeOperation = 'lighter';
+            
             for (let i = 0; i < particlesArray.length; i++) {
                 particlesArray[i].update();
                 particlesArray[i].draw();
             }
-            connect();
+            
+            // Kembalikan blending mode ke normal
+            ctx.globalCompositeOperation = 'source-over';
+            
             requestAnimationFrame(animate);
         }
 
-        // SETUP MEDIAPIPE HANDS
+        // --- 4. SETUP AI HAND TRACKING ---
         const hands = new Hands({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-        });
-
-        hands.setOptions({
-            maxNumHands: 1,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.6,
-            minTrackingConfidence: 0.6
-        });
-
-        hands.onResults((results) => {
-            statusText.innerText = "SISTEM AKTIF: GERAKKAN TANGAN ANDA";
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const landmarks = results.multiHandLandmarks[0];
-                // Landmark 8 = Ujung jari telunjuk
-                const indexFinger = landmarks[8];
-                handX = (1 - indexFinger.x) * canvas.width;
-                handY = indexFinger.y * canvas.height;
-            } else {
-                handX = null;
-                handY = null;
-            }
-        });
-
-        const camera = new Camera(videoElement, {
-            onFrame: async () => {
-                await hands.send({image: videoElement});
-            },
-            width: 640,
-            height: 480
-        });
-        camera.start();
-
-        init();
-        animate();
-
-        window.addEventListener('resize', () => {
-            canvas.width = innerWidth;
-            canvas.height = innerHeight;
-            init();
-        });
-    </script>
-</body>
-</html>
+            locateFile: (file) => `
